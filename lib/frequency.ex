@@ -7,17 +7,15 @@ defmodule Frequency do
   The number of worker processes to use can be set with 'workers'.
   """
   @spec frequency([String.t()], pos_integer) :: map
-  def frequency(texts, workers) do
-    _ = workers
-
-    texts
-    |> Enum.map(&string_freq/1)
-    |> Enum.reduce(%{}, fn m1, m2 ->
-      Map.merge(m1, m2, fn _k, v1, v2 -> v1 + v2 end)
+  def frequency(texts, workers) when is_integer(workers) do
+    Task.async_stream(texts, &string_freq/1, max_concurrency: workers)
+    |> Enum.reduce(%{}, fn {:ok, freqs}, acc ->
+      Map.merge(freqs, acc, fn _k, v1, v2 -> v1 + v2 end)
     end)
   end
 
   @invalid_characters ~r/[ 0-9\.\?\-\(\)\[\]\{\}\|,.'":;!@#%&*_=]+/
+  # character frequencies of a single string
   defp string_freq(text) when is_binary(text) do
     # clean text
     text = String.replace(text, @invalid_characters, "")
